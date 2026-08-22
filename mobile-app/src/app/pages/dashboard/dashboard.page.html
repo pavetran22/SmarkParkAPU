@@ -1,0 +1,157 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Live Parking Layout</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="fetchOccupancy(true)" [disabled]="refreshing">
+        <ion-icon name="refresh-outline" [class.spinning]="refreshing"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Section Filter Tabs -->
+  <ion-toolbar color="dark" style="--border-style: none;">
+    <div class="filter-segment">
+      <ion-button size="small" [fill]="activeFilter === 'ALL' ? 'solid' : 'outline'" (click)="setFilter('ALL')">All</ion-button>
+      <ion-button size="small" [fill]="activeFilter === 'A' ? 'solid' : 'outline'" (click)="setFilter('A')">Sec A</ion-button>
+      <ion-button size="small" [fill]="activeFilter === 'B' ? 'solid' : 'outline'" (click)="setFilter('B')">Sec B</ion-button>
+      <ion-button size="small" [fill]="activeFilter === 'C' ? 'solid' : 'outline'" (click)="setFilter('C')">Sec C</ion-button>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" color="dark">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="mobile-container ion-padding">
+    <!-- Summary Metrics Strip -->
+    <div class="summary-strip">
+      <div class="stat-card" (click)="setFilter('ALL')">
+        <span class="s-label">FREE</span>
+        <h3 class="s-val free">{{ totalAvailable }}</h3>
+      </div>
+      <div class="stat-card" (click)="setFilter('ALL')">
+        <span class="s-label">OCCUPIED</span>
+        <h3 class="s-val busy">{{ totalOccupied }}</h3>
+      </div>
+      <div class="stat-card" (click)="setFilter('ALL')">
+        <span class="s-label">OVERALL</span>
+        <h3 class="s-val" [style.color]="getOccupancyColor(overallPct)">{{ overallPct.toFixed(0) }}%</h3>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="state-box">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p class="loading-msg">Connecting to live APU parking map...</p>
+      <span class="sub-msg">http://localhost:5070/api/parking/occupancy</span>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="!loading && errorMessage" class="state-box error">
+      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+      <h3>API Connection Error</h3>
+      <p class="err-text">{{ errorMessage }}</p>
+      <ion-button expand="block" shape="round" color="danger" (click)="fetchOccupancy(true)">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon> Retry Connection
+      </ion-button>
+    </div>
+
+    <!-- Interactive APU Floor Plan Map Stage -->
+    <div *ngIf="!loading && mapRows.length > 0">
+      <div class="map-card">
+        <div class="map-toolbar">
+          <div class="legend-row">
+            <span class="sec-dot a">A</span>
+            <span class="sec-dot b">B</span>
+            <span class="sec-dot c">C</span>
+            <span class="live-tag"><span class="pulse-dot"></span> LIVE FEED</span>
+          </div>
+          <span class="time-tag">Synced {{ lastUpdatedTime }}</span>
+        </div>
+
+        <!-- 3D Style Floor Plan Container -->
+        <div class="parking-map">
+          <div class="map-bg"></div>
+
+          <!-- Section Zone Highlights -->
+          <div class="section-zone section-c" [class.highlight]="activeFilter === 'C' || activeFilter === 'ALL'">
+            <span class="sec-label">SEC C</span>
+          </div>
+          <div class="section-zone section-b" [class.highlight]="activeFilter === 'B' || activeFilter === 'ALL'">
+            <span class="sec-label">SEC B</span>
+          </div>
+          <div class="section-zone section-a" [class.highlight]="activeFilter === 'A' || activeFilter === 'ALL'">
+            <span class="sec-label">SEC A</span>
+          </div>
+
+          <!-- Driveway Markers -->
+          <div class="entry-exit-arrows">
+            <span class="in">IN ⬇</span>
+            <span class="out">OUT ⬆</span>
+          </div>
+
+          <!-- Interactive Row Blocks -->
+          <button
+            *ngFor="let row of filteredRows"
+            class="parking-row"
+            [class.horizontal]="row.orientation === 'horizontal'"
+            [class.vertical]="row.orientation === 'vertical'"
+            [class.selected]="selectedRow?.id === row.id"
+            [attr.data-section]="row.section"
+            [ngStyle]="getRowStyle(row)"
+            (click)="selectRow(row)"
+          >
+            <span class="row-fill" [ngStyle]="getFillStyle(row)"></span>
+            <span class="row-label">{{ row.id }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Row Inspector Bottom Card -->
+      <ion-card *ngIf="selectedRow" class="inspector-card">
+        <ion-card-content>
+          <div class="inspector-header" [attr.data-section]="selectedRow.section">
+            <div>
+              <span class="sec-tag">SECTION {{ selectedRow.section }}</span>
+              <h2>Row {{ selectedRow.id }}</h2>
+            </div>
+            <div class="pct-badge" [style.color]="getOccupancyColor(selectedRow.occupancyPercentage)" [style.background]="getOccupancyBg(selectedRow.occupancyPercentage)">
+              {{ selectedRow.occupancyPercentage.toFixed(1) }}% {{ selectedRow.status }}
+            </div>
+          </div>
+
+          <div class="inspector-counts">
+            <div class="cnt-box">
+              <span class="c-lbl">AVAILABLE</span>
+              <strong class="c-val free">{{ selectedRow.available }}</strong>
+            </div>
+            <div class="cnt-box">
+              <span class="c-lbl">OCCUPIED</span>
+              <strong class="c-val busy">{{ selectedRow.occupied }}</strong>
+            </div>
+            <div class="cnt-box">
+              <span class="c-lbl">CAPACITY</span>
+              <strong class="c-val cap">{{ selectedRow.total }}</strong>
+            </div>
+          </div>
+
+          <!-- Slot Occupancy Matrix -->
+          <div class="matrix-box">
+            <span class="m-lbl">SIMULATED SPOTS (ROW {{ selectedRow.id }})</span>
+            <div class="matrix-grid">
+              <div *ngFor="let s of getSimulatedSpots(selectedRow)"
+                   class="spot-dot"
+                   [class.taken]="s.occupied"
+              ></div>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</ion-content>

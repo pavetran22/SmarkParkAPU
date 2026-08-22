@@ -1,0 +1,31 @@
+# Dependencies
+**/node_modules/
+**/package-lock.json.bak
+
+# Builds & output
+**/dist/
+**/www/
+**/.angular/
+**/.vite/
+**/.output/
+**/.next/
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.venv/
+**/env/
+**/venv/
+
+# System and large archives
+.DS_Store
+**/.DS_Store
+Archive.zip
+*.zip
+*.tar.gz
+
+# Environment
+.env.local
+.env.*.local

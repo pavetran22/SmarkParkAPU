@@ -1,0 +1,79 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Availability</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="fetchSpots()">
+        <ion-icon name="refresh-outline" [class.spinning]="loading"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" color="light" class="ion-padding">
+  <header class="page-header">
+    <p>Real-time status of parking bays</p>
+  </header>
+
+  <!-- Level/Row Selectors -->
+  <div class="selectors-row">
+    <div class="selector-box">
+      <ion-label>Level</ion-label>
+      <ion-select [(ngModel)]="selectedLevel" (ionChange)="fetchSpots()" interface="popover">
+        <ion-select-option *ngFor="let l of levels" [value]="l">{{ l }}</ion-select-option>
+      </ion-select>
+    </div>
+    <div class="selector-box">
+      <ion-label>Row</ion-label>
+      <ion-select [(ngModel)]="selectedRow" (ionChange)="fetchSpots()" interface="popover">
+        <ion-select-option *ngFor="let r of rows" [value]="r">Row {{ r }}</ion-select-option>
+      </ion-select>
+    </div>
+  </div>
+
+  <ion-grid class="ion-no-padding stats-grid">
+    <ion-row>
+      <ion-col size="4">
+        <ion-card class="stat-card free">
+          <ion-card-content>
+            <h2>{{ availableCount }}</h2>
+            <p>FREE</p>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+      <ion-col size="4">
+        <ion-card class="stat-card occupied">
+          <ion-card-content>
+            <h2>{{ occupiedCount }}</h2>
+            <p>BUSY</p>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+      <ion-col size="4">
+        <ion-card class="stat-card user">
+          <ion-card-content>
+            <h2>{{ userCount }}</h2>
+            <p>YOU</p>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+
+  <div class="spots-grid-container">
+    <div class="spots-grid">
+      <div class="spot-item" *ngFor="let spot of spots" 
+           [ngClass]="{'occupied': spot.status === 'occupied', 'free': spot.status === 'free', 'user': spot.status === 'user'}">
+        <span class="spot-id">{{ spot.spot_id.split('-').pop() }}</span>
+        <span class="spot-status">{{ spot.status.toUpperCase() }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-overlay" *ngIf="loading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Updating statuses...</p>
+  </div>
+</ion-content>

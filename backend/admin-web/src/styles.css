@@ -1,0 +1,111 @@
+/* You can add global styles to this file, and also import other style files */
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+:root {
+  --primary-dark-blue: #1a237e;
+  --accent-blue: #1976d2;
+  --bg-color: #f4f6f8;
+  --surface-white: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --danger-red: #d32f2f;
+  --success-green: #2e7d32;
+  --warning-yellow: #f57f17;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+html, body {
+  min-width: 320px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+img, canvas, video {
+  max-width: 100%;
+}
+
+.mat-mdc-card,
+.mat-mdc-card-content,
+.mat-mdc-table {
+  min-width: 0;
+}
+
+button,
+.mat-mdc-button,
+.mat-mdc-raised-button,
+.mat-mdc-unelevated-button,
+.mat-mdc-outlined-button,
+.mat-mdc-icon-button {
+  box-shadow: none !important;
+}
+
+.mat-mdc-raised-button,
+.mat-mdc-unelevated-button,
+.mat-mdc-outlined-button {
+  --mdc-protected-button-container-elevation-shadow: none;
+  --mdc-protected-button-hover-container-elevation-shadow: none;
+  --mdc-protected-button-focus-container-elevation-shadow: none;
+  --mdc-protected-button-pressed-container-elevation-shadow: none;
+  --mdc-filled-button-container-color: var(--accent-blue);
+  --mdc-filled-button-label-text-color: #ffffff;
+  --mdc-protected-button-container-color: var(--accent-blue);
+  --mdc-protected-button-label-text-color: #ffffff;
+  --mdc-outlined-button-outline-color: var(--accent-blue);
+  --mdc-outlined-button-label-text-color: var(--accent-blue);
+}
+
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-unelevated-button.mat-primary {
+  --mdc-protected-button-container-color: var(--accent-blue);
+  --mdc-protected-button-label-text-color: #ffffff;
+  --mdc-filled-button-container-color: var(--accent-blue);
+  --mdc-filled-button-label-text-color: #ffffff;
+}
+
+.mat-mdc-button-base {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease !important;
+}
+
+.mat-mdc-button-base:hover:not(:disabled) {
+  box-shadow: none !important;
+  opacity: 0.92;
+}
+
+/* Parking Marker Dialog */
+.parking-marker-dialog .mat-mdc-dialog-container {
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 12px !important;
+}
+.parking-marker-dialog .mat-mdc-dialog-surface {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px !important;
+}
+
+@media (max-width: 700px) {
+  .parking-marker-dialog {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    height: 92dvh !important;
+  }
+
+  .mat-mdc-dialog-container {
+    max-width: 96vw !important;
+  }
+}
+
+/* Snackbar success */
+.snack-success { --mdc-snackbar-container-color: #2e7d32 !important; }

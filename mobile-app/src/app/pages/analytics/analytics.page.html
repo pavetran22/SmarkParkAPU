@@ -1,0 +1,398 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="dark-toolbar">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home" text="" icon="arrow-back-outline"></ion-back-button>
+    </ion-buttons>
+    <ion-title>AI Analytics & Forecast</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="refreshData(true)">
+        <ion-icon slot="icon-only" name="refresh-outline" [class.spinning]="loading"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="analytics-content">
+  <!-- Pull to Refresh -->
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content pullingIcon="chevron-down-circle-outline" pullingText="Pull to refresh analytics" refreshingSpinner="circles">
+    </ion-refresher-content>
+  </ion-refresher>
+
+  <div class="content-wrapper">
+
+    <!-- Top Badge Row -->
+    <div class="top-status-bar">
+      <div class="live-pill">
+        <span class="pulse-dot"></span> ML FORECAST ENGINE
+      </div>
+      <span class="time-stamp" *ngIf="lastUpdatedTime">Updated {{ lastUpdatedTime }}</span>
+    </div>
+
+    <!-- Error Retry Banner -->
+    <div *ngIf="hasError" class="offline-card">
+      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+      <div class="offline-info">
+        <strong>Server Offline (Port 5060)</strong>
+        <p>Using offline simulation. Tap to retry connection.</p>
+      </div>
+      <ion-button size="small" fill="outline" color="danger" (click)="refreshData(true)">
+        Retry
+      </ion-button>
+    </div>
+
+    <!-- 1. Tomorrow's Parking Forecast Card -->
+    <div class="card forecast-card">
+      <div class="card-header-row">
+        <div>
+          <span class="ai-badge">AI PREDICTION</span>
+          <h2 class="card-title">{{ forecast?.forecast_date || "Tomorrow's Forecast" }}</h2>
+        </div>
+        <div class="demand-pill" [ngClass]="forecast?.demand_level?.toLowerCase() || 'medium'">
+          {{ forecast?.demand_level || 'MEDIUM' }}
+        </div>
+      </div>
+
+      <div class="advisory-box">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <p>{{ forecast?.advisory_message || 'Calculating forecast metrics...' }}</p>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-item in">
+          <span class="m-lbl">ENTRIES</span>
+          <span class="m-val text-teal">{{ forecast?.predicted_entries || '---' }}</span>
+          <span class="m-sub">Vehicles in</span>
+        </div>
+
+        <div class="metric-item out">
+          <span class="m-lbl">EXITS</span>
+          <span class="m-val text-amber">{{ forecast?.predicted_exits || '---' }}</span>
+          <span class="m-sub">Vehicles out</span>
+        </div>
+
+        <div class="metric-item net">
+          <span class="m-lbl">NET FLOW</span>
+          <span class="m-val text-purple">+{{ forecast?.predicted_net_flow || '0' }}</span>
+          <span class="m-sub">Peak demand</span>
+        </div>
+
+        <div class="metric-item acc">
+          <span class="m-lbl">ACCURACY</span>
+          <div class="r2-box">
+            <span>R² In: <strong>{{ forecast?.model_accuracy?.entry_r2 || '0.88' }}</strong></span>
+            <span>R² Out: <strong>{{ forecast?.model_accuracy?.exit_r2 || '0.85' }}</strong></span>
+          </div>
+          <span class="m-sub">GradBoost Regressor</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Live Occupancy by Section (Donut) -->
+    <div class="card">
+      <div class="card-header-row">
+        <div>
+          <h3 class="card-title">Live Occupancy by Section</h3>
+          <p class="card-sub">Tap a section slice to view details</p>
+        </div>
+        <span class="total-badge" *ngIf="sectionsData">
+          {{ sectionsData.total_occupied }}/{{ sectionsData.total_spots }}
+        </span>
+      </div>
+
+      <div class="donut-wrapper">
+        <div class="donut-svg-box">
+          <svg viewBox="0 0 200 200" class="donut-svg">
+            <circle
+              cx="100" cy="100" r="70"
+              fill="transparent"
+              stroke="#3b82f6"
+              stroke-width="24"
+              [attr.stroke-dasharray]="getDonutDash(0)"
+              [attr.stroke-dashoffset]="getDonutOffset(0)"
+              (click)="selectSection(0)"
+              [class.active-slice]="selectedSectionIndex === 0"
+              class="donut-segment"
+            />
+            <circle
+              cx="100" cy="100" r="70"
+              fill="transparent"
+              stroke="#10b981"
+              stroke-width="24"
+              [attr.stroke-dasharray]="getDonutDash(1)"
+              [attr.stroke-dashoffset]="getDonutOffset(1)"
+              (click)="selectSection(1)"
+              [class.active-slice]="selectedSectionIndex === 1"
+              class="donut-segment"
+            />
+            <circle
+              cx="100" cy="100" r="70"
+              fill="transparent"
+              stroke="#8b5cf6"
+              stroke-width="24"
+              [attr.stroke-dasharray]="getDonutDash(2)"
+              [attr.stroke-dashoffset]="getDonutOffset(2)"
+              (click)="selectSection(2)"
+              [class.active-slice]="selectedSectionIndex === 2"
+              class="donut-segment"
+            />
+          </svg>
+          <div class="donut-center" (click)="selectedSectionIndex = null">
+            <span class="rate-num">{{ getSelectedOccupancyRate() }}%</span>
+            <span class="rate-lbl">{{ getSelectedSectionLabel() }}</span>
+          </div>
+        </div>
+
+        <div class="section-list">
+          <div 
+            *ngFor="let sec of sectionsData?.sections; let i = index" 
+            class="section-row"
+            [class.active-sec]="selectedSectionIndex === i"
+            (click)="selectSection(i)"
+          >
+            <div class="sec-dot" [style.background]="sec.color"></div>
+            <div class="sec-details">
+              <div class="sec-top">
+                <span>{{ sec.name }}</span>
+                <strong>{{ sec.occupancy_rate }}%</strong>
+              </div>
+              <div class="sec-bottom">
+                <span>{{ sec.occupied }}/{{ sec.capacity }} Bays</span>
+                <span class="free-text">{{ sec.available }} Free</span>
+              </div>
+              <div class="oku-text" *ngIf="selectedSectionIndex === i">
+                ♿ OKU: {{ sec.oku_occupied }} / {{ sec.oku_total }} Occupied
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Today vs Tomorrow Forecast (Bar Chart) -->
+    <div class="card" *ngIf="comparison">
+      <div class="card-header-row">
+        <div>
+          <h3 class="card-title">Today vs Tomorrow Traffic</h3>
+          <p class="card-sub">Projected volume vs ML Prediction</p>
+        </div>
+        <div class="bar-legend-mobile">
+          <span class="b-dot today"></span> Today
+          <span class="b-dot tomorrow"></span> Tomorrow
+        </div>
+      </div>
+
+      <div class="bar-chart-mobile">
+        <!-- Entries Pair -->
+        <div class="bar-col-card">
+          <span class="col-title">Entries</span>
+          <div class="bars-container">
+            <div class="single-bar" (click)="setBarTooltip('Today Entries', comparison.today.entries)">
+              <div class="bar-body today-in" [style.height.%]="getBarHeight(comparison.today.entries)">
+                <span class="bar-count">{{ comparison.today.entries }}</span>
+              </div>
+              <span class="b-lbl">Today</span>
+            </div>
+            <div class="single-bar" (click)="setBarTooltip('Tomorrow ML Entries', comparison.tomorrow.entries)">
+              <div class="bar-body tomorrow-in" [style.height.%]="getBarHeight(comparison.tomorrow.entries)">
+                <span class="bar-count">{{ comparison.tomorrow.entries }}</span>
+              </div>
+              <span class="b-lbl">Tomorrow</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exits Pair -->
+        <div class="bar-col-card">
+          <span class="col-title">Exits</span>
+          <div class="bars-container">
+            <div class="single-bar" (click)="setBarTooltip('Today Exits', comparison.today.exits)">
+              <div class="bar-body today-out" [style.height.%]="getBarHeight(comparison.today.exits)">
+                <span class="bar-count">{{ comparison.today.exits }}</span>
+              </div>
+              <span class="b-lbl">Today</span>
+            </div>
+            <div class="single-bar" (click)="setBarTooltip('Tomorrow ML Exits', comparison.tomorrow.exits)">
+              <div class="bar-body tomorrow-out" [style.height.%]="getBarHeight(comparison.tomorrow.exits)">
+                <span class="bar-count">{{ comparison.tomorrow.exits }}</span>
+              </div>
+              <span class="b-lbl">Tomorrow</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-bar-tooltip" *ngIf="activeTooltip">
+        <span>{{ activeTooltip.label }}: <strong>{{ activeTooltip.val }} vehicles</strong></span>
+      </div>
+    </div>
+
+    <!-- 4. Hourly Traffic Line Chart -->
+    <div class="card" *ngIf="hourlyTraffic">
+      <div class="card-header-row">
+        <div>
+          <h3 class="card-title">24-Hour Traffic Flow</h3>
+          <p class="card-sub">Live volume vs Research Baseline</p>
+        </div>
+      </div>
+
+      <!-- Toggle Chips -->
+      <div class="chips-scroll">
+        <button 
+          class="chart-chip" 
+          [class.chip-active]="seriesVisible.liveEntries" 
+          (click)="seriesVisible.liveEntries = !seriesVisible.liveEntries"
+        >
+          <span class="chip-line solid-teal"></span> Live In
+        </button>
+        <button 
+          class="chart-chip" 
+          [class.chip-active]="seriesVisible.liveExits" 
+          (click)="seriesVisible.liveExits = !seriesVisible.liveExits"
+        >
+          <span class="chip-line solid-amber"></span> Live Out
+        </button>
+        <button 
+          class="chart-chip" 
+          [class.chip-active]="seriesVisible.avgEntries" 
+          (click)="seriesVisible.avgEntries = !seriesVisible.avgEntries"
+        >
+          <span class="chip-line dashed-teal"></span> Avg In
+        </button>
+        <button 
+          class="chart-chip" 
+          [class.chip-active]="seriesVisible.avgExits" 
+          (click)="seriesVisible.avgExits = !seriesVisible.avgExits"
+        >
+          <span class="chip-line dashed-amber"></span> Avg Out
+        </button>
+      </div>
+
+      <div class="svg-chart-container">
+        <svg viewBox="0 0 380 180" class="mobile-line-svg">
+          <!-- Grid lines -->
+          <line x1="30" y1="20" x2="360" y2="20" stroke="#1e293b" stroke-dasharray="2 2"/>
+          <line x1="30" y1="65" x2="360" y2="65" stroke="#1e293b" stroke-dasharray="2 2"/>
+          <line x1="30" y1="110" x2="360" y2="110" stroke="#1e293b" stroke-dasharray="2 2"/>
+          <line x1="30" y1="150" x2="360" y2="150" stroke="#1e293b" stroke-dasharray="2 2"/>
+
+          <!-- Y Axis Labels -->
+          <text x="5" y="25" class="axis-txt">250</text>
+          <text x="5" y="70" class="axis-txt">150</text>
+          <text x="5" y="115" class="axis-txt">50</text>
+          <text x="5" y="155" class="axis-txt">0</text>
+
+          <!-- Avg Lines -->
+          <path
+            *ngIf="seriesVisible.avgEntries"
+            [attr.d]="getLinePath(hourlyTraffic.research_avg_entries)"
+            fill="none"
+            stroke="#06b6d4"
+            stroke-width="1.5"
+            stroke-dasharray="3 3"
+            opacity="0.7"
+          />
+          <path
+            *ngIf="seriesVisible.avgExits"
+            [attr.d]="getLinePath(hourlyTraffic.research_avg_exits)"
+            fill="none"
+            stroke="#f59e0b"
+            stroke-width="1.5"
+            stroke-dasharray="3 3"
+            opacity="0.7"
+          />
+
+          <!-- Live Lines -->
+          <path
+            *ngIf="seriesVisible.liveEntries"
+            [attr.d]="getLinePath(hourlyTraffic.live_entries)"
+            fill="none"
+            stroke="#06b6d4"
+            stroke-width="2.5"
+          />
+          <path
+            *ngIf="seriesVisible.liveExits"
+            [attr.d]="getLinePath(hourlyTraffic.live_exits)"
+            fill="none"
+            stroke="#f59e0b"
+            stroke-width="2.5"
+          />
+
+          <!-- Points -->
+          <ng-container *ngFor="let h of hourlyTraffic.hours; let i = index">
+            <circle
+              *ngIf="seriesVisible.liveEntries && hourlyTraffic.live_entries[i] !== null"
+              [attr.cx]="getXCoord(i)"
+              [attr.cy]="getYCoord(hourlyTraffic.live_entries[i]!)"
+              r="4"
+              fill="#06b6d4"
+              (click)="setLineTooltip(h, 'Live Entry', hourlyTraffic.live_entries[i])"
+            />
+            <circle
+              *ngIf="seriesVisible.liveExits && hourlyTraffic.live_exits[i] !== null"
+              [attr.cx]="getXCoord(i)"
+              [attr.cy]="getYCoord(hourlyTraffic.live_exits[i]!)"
+              r="4"
+              fill="#f59e0b"
+              (click)="setLineTooltip(h, 'Live Exit', hourlyTraffic.live_exits[i])"
+            />
+          </ng-container>
+
+          <!-- X Labels -->
+          <ng-container *ngFor="let h of hourlyTraffic.hours; let i = index">
+            <text 
+              *ngIf="i % 4 === 0" 
+              [attr.x]="getXCoord(i)" 
+              y="172" 
+              text-anchor="middle" 
+              class="axis-txt"
+            >
+              {{ h }}
+            </text>
+          </ng-container>
+        </svg>
+
+        <div class="line-tap-info" *ngIf="hoveredLinePoint">
+          <span>{{ hoveredLinePoint.hour }} - {{ hoveredLinePoint.type }}: <strong>{{ hoveredLinePoint.val }} cars</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Weekly / Monthly Trends Toggle Section -->
+    <div class="card" *ngIf="trendsData">
+      <div class="card-header-row">
+        <div>
+          <h3 class="card-title">Parking Volume Trends</h3>
+          <p class="card-sub">Daily flow and peak occupancy</p>
+        </div>
+      </div>
+
+      <ion-segment [value]="selectedPeriod" (ionChange)="onPeriodChange($event)" class="mobile-segment">
+        <ion-segment-button value="week">
+          <ion-label>This Week</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="month">
+          <ion-label>This Month</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <div class="trends-scroll-mobile">
+        <div class="trend-col-m" *ngFor="let label of trendsData.labels; let i = index">
+          <span class="peak-badge-m">{{ trendsData.occupancy_peak_pct[i] }}%</span>
+          <div class="bars-pair-m">
+            <div class="bar-m entry" [style.height.px]="(trendsData.entries[i] / 1600) * 80"></div>
+            <div class="bar-m exit" [style.height.px]="(trendsData.exits[i] / 1600) * 80"></div>
+          </div>
+          <span class="col-lbl-m">{{ label }}</span>
+        </div>
+      </div>
+
+      <div class="trend-legend-m">
+        <span><span class="dot in"></span> Entries</span>
+        <span><span class="dot out"></span> Exits</span>
+        <span><span class="dot peak"></span> Peak %</span>
+      </div>
+    </div>
+
+  </div>
+</ion-content>

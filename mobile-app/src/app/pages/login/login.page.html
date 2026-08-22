@@ -1,0 +1,54 @@
+<ion-content [fullscreen]="true" class="ion-padding auth-content">
+  <!-- Looping Background Video -->
+  <video autoplay loop muted playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: brightness(0.3) contrast(1.1) saturate(0.7);">
+      <source src="assets/videos/cctv-surveillance.mp4" type="video/mp4">
+  </video>
+
+  <!-- CCTV HUD -->
+  <div class="cctv-scanlines"></div>
+  
+  <div class="cctv-hud" style="position: absolute; top: 20px; left: 20px; color: #10b981; font-family: monospace; font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 0 0 4px rgba(16,185,129,0.5); display: flex; align-items: center; gap: 4px;">
+      <span class="rec-dot"></span> REC [CAM 01]
+  </div>
+
+  <div class="cctv-hud" style="position: absolute; top: 20px; right: 20px; color: #10b981; font-family: monospace; font-size: 11px; z-index: 2; font-weight: bold; text-shadow: 0 0 4px rgba(16,185,129,0.5);">
+      LIVE FEED
+  </div>
+
+  <div class="auth-wrapper">
+    <div class="auth-card animate-fade-in">
+      <div class="auth-header">
+        <h1 style="color: white; font-weight: 800; letter-spacing: -0.02em;">SmartPark APU</h1>
+        <p style="color: #94a3b8;">Secure Surveillance Portal</p>
+      </div>
+
+      <div class="error-msg" *ngIf="error">
+        {{ error }}
+      </div>
+
+      <ion-list lines="none" style="background: transparent;">
+        <ion-item class="auth-item">
+          <ion-label position="stacked">Email Address</ion-label>
+          <ion-input type="email" [(ngModel)]="email" placeholder="student@mail.com" class="modern-input"></ion-input>
+        </ion-item>
+
+        <ion-item class="auth-item">
+          <ion-label position="stacked">Password</ion-label>
+          <ion-input type="password" [(ngModel)]="password" placeholder="••••••••" class="modern-input"></ion-input>
+        </ion-item>
+      </ion-list>
+
+      <div class="forgot-link-container">
+        <span class="forgot-link" (click)="goToForgotPassword()">Forgot Password?</span>
+      </div>
+
+      <ion-button expand="block" shape="round" class="auth-btn" (click)="handleLogin()" [disabled]="loading">
+        {{ loading ? 'Accessing Feed...' : 'Authorize Login' }}
+      </ion-button>
+
+      <div class="auth-footer" style="color: #94a3b8;">
+        Don't have authorization? <span class="link" routerLink="/signup" style="color: #3b82f6;">Sign up</span>
+      </div>
+    </div>
+  </div>
+</ion-content>

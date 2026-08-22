@@ -1,0 +1,99 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Find My Car</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="mobile-container animate-fade-in">
+
+    <!-- Loader -->
+    <div *ngIf="loading" class="loader-wrap">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Searching APU Firestore records for <strong>{{ userPlate || 'registered vehicle' }}</strong>...</p>
+    </div>
+
+    <!-- Case 1: Parked -->
+    <div *ngIf="!loading && searchState === 'parked' && carData">
+      <ion-card class="status-card">
+        <ion-card-content>
+          <div class="card-header">
+             <div class="status-badge parked">CURRENTLY PARKED</div>
+             <h2 class="plate">{{ carData.car_plate || userPlate }}</h2>
+          </div>
+
+          <!-- Car Snapshot Image from Cloudinary / image_url -->
+          <div class="snapshot-container" *ngIf="sanitizedImageUrl">
+            <div class="snapshot-header">
+              <ion-icon name="camera-outline"></ion-icon>
+              <span>LIVE CAMERA SNAPSHOT</span>
+            </div>
+            <img [src]="sanitizedImageUrl" alt="Car Snapshot" class="car-snapshot-img" loading="lazy" referrerpolicy="no-referrer" (error)="onImageError($event)" />
+          </div>
+
+          <div class="location-box">
+            <div class="spot-circle">
+              {{ getSpotLabel() }}
+            </div>
+            <div class="text-group">
+              <h3>{{ carData.parking_row || 'Row Location Detected' }}</h3>
+              <p>{{ carData.parking_zone || 'APU Main Lot' }} • {{ carData.parking_slot ? 'Slot ' + carData.parking_slot : 'Active Zone' }}</p>
+            </div>
+          </div>
+
+          <div class="info-row">
+            <div class="info-item">
+              <label>VEHICLE DETAILS</label>
+              <span>{{ carData.car_colour || '' }} {{ carData.car_model || 'Vehicle' }}</span>
+            </div>
+            <div class="info-item">
+              <label>ENTRY TIME</label>
+              <span>{{ formatTime(carData.entry_time) }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="carData.is_oku" class="oku-badge-row">
+            <ion-icon name="accessibility-outline"></ion-icon>
+            <span>Designated OKU Spot</span>
+          </div>
+
+          <!-- "I am out of the premises" Button - Only visible when parked -->
+          <button class="out-premises-btn" (click)="markOutOfPremises()" [disabled]="updatingStatus">
+            <ion-icon *ngIf="!updatingStatus" name="log-out-outline"></ion-icon>
+            <ion-spinner *ngIf="updatingStatus" name="crescent"></ion-spinner>
+            <span>{{ updatingStatus ? 'Updating Status & Processing Exit...' : 'I am out of the premises' }}</span>
+          </button>
+
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Case 2: Exited -->
+    <div *ngIf="!loading && searchState === 'exited'" class="empty-card">
+      <ion-icon name="exit-outline" color="warning" class="big-icon"></ion-icon>
+      <h3>Vehicle Exited</h3>
+      <p class="notice-msg">Your car is not currently parked in the APU parking lot</p>
+      <ion-chip *ngIf="userPlate || (carData && carData.car_plate)" color="medium">
+        <ion-label>Registered Plate: {{ userPlate || carData?.car_plate }}</ion-label>
+      </ion-chip>
+      <br/><br/>
+      <ion-button routerLink="/home" expand="block" shape="round">Return to Home</ion-button>
+    </div>
+
+    <!-- Case 3: Not Found -->
+    <div *ngIf="!loading && searchState === 'not_found'" class="empty-card">
+      <ion-icon name="information-circle-outline" color="primary" class="big-icon"></ion-icon>
+      <h3>No Parking Record</h3>
+      <p class="notice-msg">No active parking record found for your vehicle</p>
+      <ion-chip *ngIf="userPlate" color="medium">
+        <ion-label>Registered Plate: {{ userPlate }}</ion-label>
+      </ion-chip>
+      <p class="sub-text">Please ensure your vehicle plate is correctly registered under your APU profile.</p>
+      <ion-button routerLink="/home" expand="block" shape="round">Return to Home</ion-button>
+    </div>
+
+  </div>
+</ion-content>

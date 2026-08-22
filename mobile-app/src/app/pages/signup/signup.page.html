@@ -1,0 +1,39 @@
+<ion-content [fullscreen]="true" class="ion-padding auth-content" color="light">
+  <div class="auth-wrapper">
+    <div class="auth-card animate-fade-in">
+      <div class="auth-header">
+        <h1>Join SmartPark</h1>
+        <p>Register your account and vehicle</p>
+      </div>
+
+      <div class="error-msg" *ngIf="error">
+        {{ error }}
+      </div>
+
+      <ion-list lines="none" class="ion-no-padding">
+        <ion-item class="auth-item">
+          <ion-label position="stacked">Full Name</ion-label>
+          <ion-input type="text" [(ngModel)]="name" placeholder="John Doe"></ion-input>
+        </ion-item>
+
+        <ion-item class="auth-item">
+          <ion-label position="stacked">Email Address</ion-label>
+          <ion-input type="email" [(ngModel)]="email" placeholder="student@mail.com"></ion-input>
+        </ion-item>
+
+        <ion-item class="auth-item">
+          <ion-label position="stacked">Password</ion-label>
+          <ion-input type="password" [(ngModel)]="password" placeholder="••••••••"></ion-input>
+        </ion-item>
+      </ion-list>
+
+      <ion-button expand="block" shape="round" class="auth-btn" (click)="handleSignup()" [disabled]="loading">
+        {{ loading ? 'Creating Account...' : 'Register' }}
+      </ion-button>
+
+      <div class="auth-footer">
+        Already registered? <span class="link" routerLink="/login">Sign in</span>
+      </div>
+    </div>
+  </div>
+</ion-content>

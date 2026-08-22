@@ -1,0 +1,183 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <div class="mobile-header-brand">
+      <ion-icon name="shield-outline" class="header-logo-icon"></ion-icon>
+      <ion-title>SmartPark APU</ion-title>
+    </div>
+    <ion-buttons slot="end">
+      <ion-button (click)="navigate('/notifications')" style="position: relative;">
+        <ion-icon name="notifications-outline"></ion-icon>
+        <ion-badge *ngIf="unreadCount > 0" color="danger" style="position: absolute; top: 0; right: 0; font-size: 0.65rem;">
+          {{ unreadCount }}
+        </ion-badge>
+      </ion-button>
+      <ion-button (click)="handleLogout()" class="logout-icon-btn">
+        <ion-icon name="log-out-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding home-content-cctv">
+  <!-- Looping Background Video -->
+  <video autoplay loop muted playsinline class="bg-video-mobile">
+      <source src="assets/videos/cctv-surveillance.mp4" type="video/mp4">
+  </video>
+
+  <!-- CCTV Monitor HUD & Scanlines -->
+  <div class="cctv-scanlines-fixed"></div>
+
+  <div class="hud-time-overlay">
+      SYS CORE // REC [CAM 01] // {{ cctvTime }}
+  </div>
+
+  <div class="home-wrapper-inner">
+    <!-- Welcome Header Card -->
+    <div class="welcome-header animate-up">
+      <div class="header-main-row">
+        <div class="text-group">
+          <div class="user-greeting-row">
+            <h2 class="user-name">Welcome, {{ user?.name || 'User' }}</h2>
+            <div class="role-badge staff-badge" *ngIf="user?.role === 'staff'">
+              <ion-icon name="briefcase-outline"></ion-icon>
+              <span>Staff</span>
+            </div>
+            <div class="role-badge oku-badge" *ngIf="user?.is_oku">
+              <ion-icon name="accessibility-outline"></ion-icon>
+              <span>OKU</span>
+            </div>
+          </div>
+          <p class="user-id-text">
+            <span *ngIf="user?.role === 'staff'">Staff ID: {{ user?.staff_id }}</span>
+            <span *ngIf="user?.role !== 'staff'">{{ user ? 'Student ID: ' + user.student_id : 'Loading profile...' }}</span>
+          </p>
+        </div>
+        <div *ngIf="user?.car_plate" class="car-badge animate-up">
+          <ion-icon name="car-outline"></ion-icon>
+          <span class="car-plate-val">{{ user?.car_plate }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wallet & Balance Card -->
+    <ion-card class="wallet-card animate-up" style="background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%); color: white; border-radius: 20px; margin: 0 0 1.25rem 0; box-shadow: 0 10px 25px rgba(30, 58, 138, 0.25);">
+      <ion-card-content style="padding: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #93c5fd;">SmartPark Wallet</span>
+          <ion-badge *ngIf="userBalance < 5" color="danger">LOW BALANCE</ion-badge>
+        </div>
+        
+        <div style="font-size: 2rem; font-weight: 900; margin-bottom: 0.25rem;">
+          RM {{ userBalance | number:'1.2-2' }}
+        </div>
+        <p style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 1rem; margin-top: 0;">
+          Automated parking fee deduction on exit.
+        </p>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <ion-button size="small" shape="round" color="light" (click)="quickTopUp(10)">+ RM 10</ion-button>
+          <ion-button size="small" shape="round" color="light" (click)="quickTopUp(20)">+ RM 20</ion-button>
+          <ion-button size="small" shape="round" color="light" (click)="quickTopUp(50)">+ RM 50</ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Real-time Alerts Banner -->
+    <div *ngIf="unreadNotifications.length > 0" class="alerts-section animate-up">
+      <ion-card class="alert-card" button (click)="navigate('/notifications')" style="margin: 0 0 1.25rem 0;">
+        <ion-item lines="none" style="--background: transparent; color: inherit;">
+          <div class="alert-icon-circle" slot="start">
+            <ion-icon name="alert-circle" color="danger"></ion-icon>
+          </div>
+          <ion-label class="alert-content">
+            <h3>{{ getBadgeTitle(unreadNotifications[0].type) }}</h3>
+            <p>{{ unreadNotifications[0].message }}</p>
+          </ion-label>
+          <ion-badge color="danger" slot="end" class="notif-count-badge">{{ unreadNotifications.length }}</ion-badge>
+        </ion-item>
+      </ion-card>
+    </div>
+
+    <!-- Menu Grid -->
+    <div class="menu-grid">
+      <div class="menu-item" (click)="navigate('/spots')">
+        <div class="icon-box blue">
+          <ion-icon name="map-outline"></ion-icon>
+        </div>
+        <h3>Live Spots</h3>
+        <p>Real-time layout</p>
+      </div>
+
+      <div class="menu-item" (click)="navigate('/analytics')">
+        <div class="icon-box" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;">
+          <ion-icon name="trending-up-outline"></ion-icon>
+        </div>
+        <h3>AI Analytics</h3>
+        <p>ML Forecasts</p>
+      </div>
+
+      <div class="menu-item" (click)="navigate('/find-my-car')">
+        <div class="icon-box indigo">
+          <ion-icon name="location-outline"></ion-icon>
+        </div>
+        <h3>Find My Car</h3>
+        <p>Locate vehicle</p>
+      </div>
+
+      <div class="menu-item" (click)="navigate('/my-vehicles')">
+        <div class="icon-box navy">
+          <ion-icon name="car-outline"></ion-icon>
+        </div>
+        <h3>My Plates</h3>
+        <p>Manage vehicles</p>
+      </div>
+
+      <div class="menu-item center-btn" (click)="navigate('/notifications')">
+        <div class="icon-box sky">
+          <ion-icon name="notifications-outline"></ion-icon>
+        </div>
+        <h3>Notifications</h3>
+        <p>View all alerts</p>
+      </div>
+    </div>
+
+    <!-- Occupancy Centerpiece Card -->
+    <ion-card class="occupancy-card animate-up" style="margin: 0;">
+      <div class="card-accent-bar"></div>
+      <ion-card-header>
+        <div class="occupancy-header-row">
+          <div>
+            <ion-card-subtitle>LIVE OCCUPANCY</ion-card-subtitle>
+            <ion-card-title>Parking is 64% full</ion-card-title>
+          </div>
+          <span class="ai-sparkle-tag" (click)="navigate('/analytics')" style="cursor: pointer;">
+            <ion-icon name="sparkles-outline"></ion-icon> AI Analytics
+          </span>
+        </div>
+      </ion-card-header>
+      <ion-card-content>
+        <p class="lstm-text">GradBoost model predicts peak occupancy in <b>2 hours</b>.</p>
+        
+        <div class="mobile-gauge-container">
+          <div class="progress-wrap">
+            <div class="progress-bar" style="width: 64%"></div>
+          </div>
+        </div>
+
+        <div class="occupancy-action-row" style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.85rem; border-top: 1px solid rgba(0,0,0,0.08);">
+          <div class="accuracy-label" style="padding-top: 0; border-top: none;">
+            <span class="dot"></span> <span>AI Accuracy <strong>94.2%</strong></span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <ion-button size="small" fill="clear" (click)="navigate('/analytics')" style="font-weight: 800; font-size: 0.75rem; color: #0284c7;">
+              Analytics <ion-icon slot="end" name="trending-up-outline"></ion-icon>
+            </ion-button>
+            <ion-button size="small" fill="solid" color="primary" (click)="navigate('/spots')" style="font-weight: 800; font-size: 0.75rem;">
+              Spots <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

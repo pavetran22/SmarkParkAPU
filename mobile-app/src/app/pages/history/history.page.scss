@@ -1,0 +1,64 @@
+.history-card {
+  margin: 0 0 1.25rem 0;
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+  --background: white;
+
+  .card-header-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+
+    .date-badge {
+      background: #f1f5f9;
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      min-width: 50px;
+      .day { font-size: 0.75rem; font-weight: 800; color: #475569; }
+    }
+
+    .plate-info {
+      h3 { margin: 0; font-weight: 800; color: #1e293b; font-size: 1.2rem; }
+      .tags { display: flex; gap: 6px; margin-top: 4px; }
+      .mini-badge { font-size: 0.6rem; --padding-start: 6px; --padding-end: 6px; border-radius: 4px; }
+    }
+  }
+
+  .time-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 12px;
+    gap: 8px;
+
+    .time-box {
+      display: flex;
+      flex-direction: column;
+      label { font-size: 0.6rem; font-weight: 800; color: #94a3b8; }
+      span { font-size: 0.8rem; font-weight: 700; color: #334155; margin-top: 2px; }
+    }
+  }
+
+  .alert-row {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fef2f2;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  h3 { font-weight: 800; color: #1e293b; margin-top: 1.5rem; }
+  p { color: #64748b; font-size: 0.9rem; }
+}

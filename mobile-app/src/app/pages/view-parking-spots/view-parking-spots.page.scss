@@ -1,0 +1,58 @@
+.page-header {
+  margin-bottom: 1rem;
+  p { color: var(--ion-color-medium); margin: 0; font-size: 0.9rem; }
+}
+
+.selectors-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 1rem;
+    .selector-box {
+        flex: 1;
+        background: white;
+        border-radius: 0.75rem;
+        padding: 4px 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        ion-label { font-size: 0.7rem; font-weight: 700; color: var(--ion-color-primary); text-transform: uppercase; }
+        ion-select { --padding-start: 0; font-weight: 600; }
+    }
+}
+
+.stats-grid { margin: 0 -8px 1rem -8px; }
+
+.stat-card {
+  margin: 4px; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); text-align: center;
+  h2 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+  p { margin: 2px 0 0 0; font-weight: 700; font-size: 0.65rem; }
+
+  &.free { --background: #ecfdf5; h2 { color: #10b981; } p { color: #047857; } }
+  &.occupied { --background: #fef2f2; h2 { color: #ef4444; } p { color: #b91c1c; } }
+  &.user { --background: #e0f2fe; h2 { color: #0ea5e9; } p { color: #0369a1; } }
+}
+
+.spots-grid-container { padding-bottom: 2rem; }
+
+.spots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.spot-item {
+  height: 60px; border-radius: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; border-width: 1.5px; border-style: solid;
+  
+  .spot-id { font-size: 1rem; }
+  .spot-status { font-size: 0.55rem; opacity: 0.8; }
+
+  &.free { background: #d1fae5; color: #10b981; border-color: #86efac; }
+  &.occupied { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+  &.user { background: #e0f2fe; color: #0ea5e9; border-color: #7dd3fc; }
+}
+
+.loading-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;
+  p { margin-top: 1rem; color: var(--ion-color-primary); font-weight: 600; }
+}
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spinning { animation: spin 1s infinite linear; }

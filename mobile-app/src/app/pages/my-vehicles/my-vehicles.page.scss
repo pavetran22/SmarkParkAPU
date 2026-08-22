@@ -1,0 +1,54 @@
+.v-card-main {
+  margin: 0 0 1.5rem 0;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  --background: white;
+
+  .v-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    .v-icon { background: #eff6ff; color: #3b82f6; padding: 12px; border-radius: 12px; ion-icon { font-size: 2.5rem; } }
+    .v-plate { font-size: 1.5rem; font-weight: 900; color: #1e293b; margin: 0; }
+    .v-model { color: #64748b; font-size: 0.95rem; margin: 2px 0 0 0; }
+  }
+}
+
+.info-list {
+  background: white;
+  border-radius: 1rem;
+  padding: 8px 0;
+  ion-item {
+     --padding-start: 16px;
+     p { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
+     h3 { font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0; }
+  }
+}
+
+.edit-card {
+  margin: 0;
+  border-radius: 1.5rem;
+  --background: white;
+  
+  .input-item {
+    --background: transparent;
+    --padding-start: 0;
+    margin-bottom: 12px;
+    ion-label { color: #94a3b8; font-weight: 800; font-size: 0.7rem; margin-bottom: 6px; }
+    ion-input { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; --padding-start: 12px; }
+  }
+
+  .toggle-row {
+    --padding-top: 10px;
+    ion-label { margin: 0; }
+  }
+
+  .save-btn {
+    margin-top: 1.5rem;
+    height: 3.5rem;
+    font-weight: 800;
+  }
+}
+
+@keyframes animateUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-up { animation: animateUp 0.5s ease-out; }

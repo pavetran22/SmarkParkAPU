@@ -1,0 +1,61 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Parking History</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" color="light">
+  <div *ngIf="loading" style="text-align: center; margin-top: 3rem;">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Retrieving logs...</p>
+  </div>
+
+  <ion-list lines="none" class="ion-padding history-list" *ngIf="!loading && logs.length > 0">
+    <ion-card class="history-card" *ngFor="let log of logs">
+      <ion-card-content>
+        <div class="card-header-row">
+          <div class="date-badge">
+             <span class="day">{{ formatDate(log.created_at) }}</span>
+          </div>
+          <div class="plate-info">
+            <h3>{{ log.car_plate }}</h3>
+            <div class="tags">
+              <ion-badge color="tertiary" class="mini-badge">{{ log.parking_spot }}</ion-badge>
+              <ion-badge [color]="log.status === 'parked' ? 'success' : 'medium'" class="mini-badge">{{ log.status }}</ion-badge>
+            </div>
+          </div>
+        </div>
+
+        <div class="time-grid">
+          <div class="time-box">
+             <label>ENTRY</label>
+             <span>{{ formatTime(log.entry_time) }}</span>
+          </div>
+          <div class="time-box">
+             <label>EXIT</label>
+             <span>{{ log.exit_time ? formatTime(log.exit_time) : '—' }}</span>
+          </div>
+          <div class="time-box">
+             <label>DURATION</label>
+             <span>{{ calculateDuration(log.entry_time, log.exit_time) }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="log.is_oku_violation || log.is_double_park" class="alert-row">
+          <ion-icon name="alert-circle" color="danger"></ion-icon>
+          <span *ngIf="log.is_double_park">Double Parked Alert</span>
+          <span *ngIf="log.is_oku_violation">OKU Area Violation</span>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </ion-list>
+
+  <div *ngIf="!loading && logs.length === 0" class="empty-state">
+    <ion-icon name="history-outline" style="font-size: 5rem; color: #cbd5e1;"></ion-icon>
+    <h3>No Records Found</h3>
+    <p>Your parking history will appear here.</p>
+  </div>
+</ion-content>
