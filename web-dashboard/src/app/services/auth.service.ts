@@ -132,6 +132,16 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const normalizedEmail = (email || '').trim().toLowerCase();
+    
+    // Check format first
+    const isStudent = /^[Tt][Pp]\d+@mail\.apu\.edu\.my$/i.test(normalizedEmail);
+    const isStaff = /^[A-Za-z0-9._%+-]+@(staff\.mail\.apu\.edu\.my|staffmail\.apu\.edu\.my|staff\.apu\.edu\.my)$/i.test(normalizedEmail);
+    if (!isStudent && !isStaff) {
+      if (normalizedEmail.endsWith('@gmail.com') || normalizedEmail.endsWith('@yahoo.com') || normalizedEmail.endsWith('@hotmail.com') || normalizedEmail.endsWith('@outlook.com') || normalizedEmail.endsWith('@icloud.com')) {
+        throw new Error('Personal emails (Gmail, Yahoo, etc.) are not permitted. Please use your official APU email (TPXXXXXX@mail.apu.edu.my).');
+      }
+    }
+
     try {
       return await signInWithEmailAndPassword(this.auth, normalizedEmail, password);
     } catch (e: any) {
@@ -141,7 +151,33 @@ export class AuthService {
         e?.code === 'auth/wrong-password' || 
         e?.code === 'auth/user-not-found'
       ) {
-        throw new Error('Incorrect APU email or password. Please check your credentials and try again.');
+        // Check Firestore to distinguish if account is unregistered vs incorrect password
+        let accountExists = false;
+        try {
+          const isStaffEmail = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || normalizedEmail.endsWith('@staffmail.apu.edu.my') || normalizedEmail.endsWith('@staff.apu.edu.my');
+          const primaryCollection = isStaffEmail ? 'staff' : 'users';
+          const secondaryCollection = isStaffEmail ? 'users' : 'staff';
+          
+          const primaryQuery = query(collection(this.firestore, primaryCollection), where('email', '==', normalizedEmail));
+          const primarySnap = await getDocs(primaryQuery);
+          if (!primarySnap.empty) {
+            accountExists = true;
+          } else {
+            const secondaryQuery = query(collection(this.firestore, secondaryCollection), where('email', '==', normalizedEmail));
+            const secondarySnap = await getDocs(secondaryQuery);
+            if (!secondarySnap.empty) {
+              accountExists = true;
+            }
+          }
+        } catch (checkErr) {
+          console.warn('[AuthService] Account existence check note:', checkErr);
+        }
+
+        if (!accountExists) {
+          throw new Error('Account was not registered. Please register an account first.');
+        } else {
+          throw new Error('Incorrect password. Please verify your password and try again.');
+        }
       } else if (e?.code === 'auth/too-many-requests') {
         throw new Error('Access temporarily blocked due to multiple failed login attempts. Please reset your password or try again later.');
       } else if (e?.code === 'auth/invalid-email') {
