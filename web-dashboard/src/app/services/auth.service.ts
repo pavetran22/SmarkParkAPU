@@ -131,7 +131,7 @@ export class AuthService {
     }
   }
 
-  async checkAccountRegistered(email: string): Promise<'REGISTERED' | 'NOT_FOUND'> {
+  async checkAccountRegistered(email: string): Promise<'REGISTERED' | 'NOT_FOUND' | 'PERMISSION_DENIED'> {
     const normalizedEmail = (email || '').trim().toLowerCase();
     const prefix = normalizedEmail.split('@')[0].toUpperCase();
     const isStaff = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || 
@@ -178,7 +178,7 @@ export class AuthService {
       return 'NOT_FOUND';
     } catch (err: any) {
       console.warn('[AuthService] Firestore registration check note:', err?.code, err?.message);
-      return 'NOT_FOUND';
+      return 'PERMISSION_DENIED';
     }
   }
 
@@ -203,8 +203,12 @@ export class AuthService {
         e?.code === 'auth/wrong-password' || 
         e?.code === 'auth/user-not-found'
       ) {
-        const isRegistered = (await this.checkAccountRegistered(normalizedEmail)) === 'REGISTERED';
-        if (!isRegistered) {
+        if (e?.code === 'auth/user-not-found') {
+          throw new Error('TP Address is not registered. Please register an account first.');
+        }
+
+        const status = await this.checkAccountRegistered(normalizedEmail);
+        if (status === 'NOT_FOUND') {
           throw new Error('TP Address is not registered. Please register an account first.');
         } else {
           throw new Error('Incorrect password. Please verify your password and try again.');
@@ -309,12 +313,12 @@ export class AuthService {
     // 2. Check if account is registered in Firestore database
     const status = await this.checkAccountRegistered(normalizedEmail);
 
-    if (status !== 'REGISTERED') {
+    if (status === 'NOT_FOUND') {
       throw new Error('TP Address is not registered. Please register an account first.');
     }
 
     // 3. Dispatch Password Reset Link with casing fallbacks
-    console.log('[AuthService] Dispatching password reset email for verified registered account:', normalizedEmail);
+    console.log('[AuthService] Dispatching password reset email for:', normalizedEmail, 'status:', status);
 
     const redirectUrl = window.location.origin + '/reset-password';
     const actionCodeSettings = {
@@ -329,6 +333,7 @@ export class AuthService {
       prefix + domain
     ];
 
+    let lastError: any = null;
     for (const candidate of Array.from(new Set(candidates))) {
       try {
         try {
@@ -340,11 +345,26 @@ export class AuthService {
         console.log('[AuthService] Password reset email sent successfully to:', candidate);
         return { success: true, email: normalizedEmail };
       } catch (err: any) {
+        lastError = err;
         console.warn(`[AuthService] Attempt with '${candidate}' notice:`, err?.code, err?.message);
+        if (err?.code !== 'auth/user-not-found') {
+          break;
+        }
       }
     }
 
-    return { success: true, email: normalizedEmail };
+    if (status === 'REGISTERED') {
+      return { success: true, email: normalizedEmail };
+    }
+
+    if (lastError?.code === 'auth/user-not-found') {
+      throw new Error('TP Address is not registered. Please register an account first.');
+    } else if (lastError?.code === 'auth/invalid-email') {
+      throw new Error('Please enter a valid APU email address format.');
+    } else if (lastError?.code === 'auth/too-many-requests') {
+      throw new Error('Too many requests. Please wait a few moments before requesting another reset link.');
+    }
+    throw new Error(lastError?.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, '') || lastError?.message || 'Failed to send password reset link.');
   }
 
   async verifyResetCode(oobCode: string): Promise<string> {
