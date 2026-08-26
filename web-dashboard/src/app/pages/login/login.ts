@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { CommonModule } from '@angular/common';
@@ -40,8 +40,10 @@ import { LucideAngularModule } from 'lucide-angular';
             </div>
  
             <form (ngSubmit)="handleSubmit()" style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <div *ngIf="error" style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.875rem; font-weight: 600; border: 1px solid rgba(239, 68, 68, 0.3);">
-                    {{ error }}
+                <!-- Error Alert Box -->
+                <div *ngIf="error" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 0.85rem 1rem; border-radius: 12px; font-size: 0.875rem; font-weight: 600; border: 1px solid rgba(239, 68, 68, 0.4); display: flex; align-items: flex-start; gap: 8px; line-height: 1.4;">
+                    <lucide-icon name="alert-circle" [size]="18" style="color: #ef4444; flex-shrink: 0; margin-top: 2px;"></lucide-icon>
+                    <span>{{ error }}</span>
                 </div>
  
                 <div class="input-group">
@@ -118,22 +120,33 @@ export class Login {
   error = '';
   loading = false;
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(
+    private auth: AuthService, 
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   async handleSubmit() {
     if (!this.email || !this.password) {
       this.error = 'Please fill in all fields';
+      this.cdr.detectChanges();
       return;
     }
     this.loading = true;
     this.error = '';
+    this.cdr.detectChanges();
+
     try {
       await this.auth.login(this.email, this.password);
       this.router.navigate(['/']);
     } catch (e: any) {
-      this.error = e.message || 'Login failed';
+      console.warn('[Login] Error caught:', e);
+      this.error = e.message || 'Login failed. Please verify your credentials.';
+      this.loading = false;
+      this.cdr.detectChanges();
     } finally {
       this.loading = false;
+      this.cdr.detectChanges();
     }
   }
 

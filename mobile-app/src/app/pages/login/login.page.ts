@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -18,22 +18,33 @@ export class LoginPage {
   error = '';
   loading = false;
 
-  constructor(private auth: AuthService, private router: Router) { }
+  constructor(
+    private auth: AuthService, 
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) { }
 
   async handleLogin() {
     if (!this.email || !this.password) {
       this.error = 'Please fill in all fields';
+      this.cdr.detectChanges();
       return;
     }
     this.loading = true;
     this.error = '';
+    this.cdr.detectChanges();
+
     try {
       await this.auth.login(this.email, this.password);
       this.router.navigate(['/home']);
     } catch (e: any) {
-      this.error = e.message || 'Login failed';
+      console.warn('[LoginPage] Error caught:', e);
+      this.error = e.message || 'Login failed. Please check your credentials.';
+      this.loading = false;
+      this.cdr.detectChanges();
     } finally {
       this.loading = false;
+      this.cdr.detectChanges();
     }
   }
 

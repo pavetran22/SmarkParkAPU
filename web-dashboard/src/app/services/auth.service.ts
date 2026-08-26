@@ -131,7 +131,26 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    return signInWithEmailAndPassword(this.auth, email, password);
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    try {
+      return await signInWithEmailAndPassword(this.auth, normalizedEmail, password);
+    } catch (e: any) {
+      console.warn('[AuthService] Login error:', e);
+      if (
+        e?.code === 'auth/invalid-credential' || 
+        e?.code === 'auth/wrong-password' || 
+        e?.code === 'auth/user-not-found'
+      ) {
+        throw new Error('Incorrect APU email or password. Please check your credentials and try again.');
+      } else if (e?.code === 'auth/too-many-requests') {
+        throw new Error('Access temporarily blocked due to multiple failed login attempts. Please reset your password or try again later.');
+      } else if (e?.code === 'auth/invalid-email') {
+        throw new Error('Invalid email format. Please use TPXXXXXX@mail.apu.edu.my.');
+      } else if (e?.code === 'auth/network-request-failed') {
+        throw new Error('Network connection error. Please check your internet connection.');
+      }
+      throw new Error(e?.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, '') || e?.message || 'Login failed. Please verify your credentials.');
+    }
   }
 
   async logout() {
