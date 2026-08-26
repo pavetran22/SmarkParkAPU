@@ -131,7 +131,7 @@ export class AuthService {
     }
   }
 
-  async checkAccountRegistered(email: string): Promise<boolean> {
+  async checkAccountRegistered(email: string): Promise<'REGISTERED' | 'NOT_FOUND' | 'UNKNOWN'> {
     const normalizedEmail = (email || '').trim().toLowerCase();
     const prefix = normalizedEmail.split('@')[0].toUpperCase();
     const isStaff = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || 
@@ -143,25 +143,25 @@ export class AuthService {
         // 1. Check student_id (stored uppercase e.g. TP676767 or TP067847)
         const qStudent = query(collection(this.firestore, 'users'), where('student_id', '==', prefix));
         const snapStudent = await getDocs(qStudent);
-        if (!snapStudent.empty) return true;
+        if (!snapStudent.empty) return 'REGISTERED';
 
         // 2. Check email variations (lowercase, uppercase prefix)
         const qEmailLower = query(collection(this.firestore, 'users'), where('email', '==', normalizedEmail));
         const snapEmailLower = await getDocs(qEmailLower);
-        if (!snapEmailLower.empty) return true;
+        if (!snapEmailLower.empty) return 'REGISTERED';
 
         const qEmailUpper = query(collection(this.firestore, 'users'), where('email', '==', prefix + '@mail.apu.edu.my'));
         const snapEmailUpper = await getDocs(qEmailUpper);
-        if (!snapEmailUpper.empty) return true;
+        if (!snapEmailUpper.empty) return 'REGISTERED';
       } else {
         // Check staff collection
         const qStaff = query(collection(this.firestore, 'staff'), where('staff_id', '==', prefix));
         const snapStaff = await getDocs(qStaff);
-        if (!snapStaff.empty) return true;
+        if (!snapStaff.empty) return 'REGISTERED';
 
         const qStaffEmail = query(collection(this.firestore, 'staff'), where('email', '==', normalizedEmail));
         const snapStaffEmail = await getDocs(qStaffEmail);
-        if (!snapStaffEmail.empty) return true;
+        if (!snapStaffEmail.empty) return 'REGISTERED';
       }
 
       // 3. Fallback: check alternate collection just in case
@@ -169,17 +169,17 @@ export class AuthService {
       const idField = isStaff ? 'student_id' : 'staff_id';
       const qAlt = query(collection(this.firestore, altCollection), where(idField, '==', prefix));
       const snapAlt = await getDocs(qAlt);
-      if (!snapAlt.empty) return true;
+      if (!snapAlt.empty) return 'REGISTERED';
 
       const qAltEmail = query(collection(this.firestore, altCollection), where('email', '==', normalizedEmail));
       const snapAltEmail = await getDocs(qAltEmail);
-      if (!snapAltEmail.empty) return true;
+      if (!snapAltEmail.empty) return 'REGISTERED';
 
-    } catch (err) {
-      console.warn('[AuthService] Firestore registration check note:', err);
+      return 'NOT_FOUND';
+    } catch (err: any) {
+      console.warn('[AuthService] Firestore registration check note:', err?.code, err?.message);
+      return 'UNKNOWN';
     }
-
-    return false;
   }
 
   async login(email: string, password: string) {
@@ -203,9 +203,12 @@ export class AuthService {
         e?.code === 'auth/wrong-password' || 
         e?.code === 'auth/user-not-found'
       ) {
-        const accountExists = await this.checkAccountRegistered(normalizedEmail);
+        if (e?.code === 'auth/user-not-found') {
+          throw new Error('Account was not registered. Please register an account first.');
+        }
 
-        if (!accountExists) {
+        const status = await this.checkAccountRegistered(normalizedEmail);
+        if (status === 'NOT_FOUND') {
           throw new Error('Account was not registered. Please register an account first.');
         } else {
           throw new Error('Incorrect password. Please verify your password and try again.');
@@ -264,6 +267,7 @@ export class AuthService {
         })
       );
     }
+    return of(null);
   }
 
   getUserProfileByPlate(plateNumber: string): Observable<UserProfile | null> {
@@ -305,14 +309,14 @@ export class AuthService {
     }
 
     // 2. Check if account is registered in Firestore database
-    const isRegistered = await this.checkAccountRegistered(normalizedEmail);
+    const status = await this.checkAccountRegistered(normalizedEmail);
 
-    if (!isRegistered) {
+    if (status === 'NOT_FOUND') {
       throw new Error('Account was not registered. Please register an account first.');
     }
 
     // 3. Dispatch Password Reset Link
-    console.log('[AuthService] Dispatching password reset email for registered account:', normalizedEmail);
+    console.log('[AuthService] Dispatching password reset email for:', normalizedEmail, 'status:', status);
 
     const redirectUrl = window.location.origin + '/reset-password';
     const actionCodeSettings = {
