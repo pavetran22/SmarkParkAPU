@@ -254,6 +254,32 @@ export class AuthService {
       throw new Error("Invalid email domain. Only official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my) addresses are allowed.");
     }
 
+    // Verify account exists in Firestore database
+    const isStaffEmail = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || normalizedEmail.endsWith('@staffmail.apu.edu.my') || normalizedEmail.endsWith('@staff.apu.edu.my');
+    const primaryCol = isStaffEmail ? 'staff' : 'users';
+    const secondaryCol = isStaffEmail ? 'users' : 'staff';
+
+    let accountFound = false;
+    try {
+      const q1 = query(collection(this.firestore, primaryCol), where('email', '==', normalizedEmail));
+      const snap1 = await getDocs(q1);
+      if (!snap1.empty) {
+        accountFound = true;
+      } else {
+        const q2 = query(collection(this.firestore, secondaryCol), where('email', '==', normalizedEmail));
+        const snap2 = await getDocs(q2);
+        if (!snap2.empty) {
+          accountFound = true;
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[Mobile AuthService] Checking registration existence error:', dbErr);
+    }
+
+    if (!accountFound) {
+      throw new Error('Account is not registered. Please sign up to create an account.');
+    }
+
     console.log('[Mobile AuthService] Invoking Firebase sendPasswordResetEmail for:', normalizedEmail);
 
     const redirectUrl = window.location.origin + '/reset-password';
@@ -268,8 +294,12 @@ export class AuthService {
       return { success: true, email: normalizedEmail };
     } catch (err: any) {
       console.warn('[Mobile AuthService] sendPasswordResetEmail notice:', err?.code, err?.message);
-      if (err?.code === 'auth/invalid-email') {
+      if (err?.code === 'auth/user-not-found') {
+        throw new Error('Account is not registered. Please sign up to create an account.');
+      } else if (err?.code === 'auth/invalid-email') {
         throw new Error('Please enter a valid APU email address format.');
+      } else if (err?.code === 'auth/too-many-requests') {
+        throw new Error('Too many requests. Please wait a few moments before requesting another reset link.');
       }
       try {
         await sendPasswordResetEmail(this.auth, normalizedEmail);
