@@ -307,15 +307,8 @@ export class AuthService {
       throw new Error("Invalid email domain. Only official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my) addresses are allowed.");
     }
 
-    // 2. Check if account is registered in Firestore database
-    const isRegistered = await this.checkAccountRegistered(normalizedEmail);
-
-    if (!isRegistered) {
-      throw new Error('TP Address is not registered. Please register an account first.');
-    }
-
-    // 3. Dispatch standard Firebase Password Reset Link
-    console.log('[Mobile AuthService] Dispatching standard password reset email for:', normalizedEmail);
+    // 2. Dispatch Firebase Password Reset Link
+    console.log('[Mobile AuthService] Dispatching password reset email for:', normalizedEmail);
 
     try {
       await sendPasswordResetEmail(this.auth, normalizedEmail);
