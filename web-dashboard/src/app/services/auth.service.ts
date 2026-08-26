@@ -198,17 +198,12 @@ export class AuthService {
       return await signInWithEmailAndPassword(this.auth, normalizedEmail, password);
     } catch (e: any) {
       console.warn('[AuthService] Login error:', e);
-      if (
-        e?.code === 'auth/invalid-credential' || 
-        e?.code === 'auth/wrong-password' || 
-        e?.code === 'auth/user-not-found'
-      ) {
-        const isRegistered = await this.checkAccountRegistered(normalizedEmail);
-        if (!isRegistered) {
-          throw new Error('TP Address is not registered. Please register an account first.');
-        } else {
-          throw new Error('Incorrect password. Please verify your password and try again.');
-        }
+      if (e?.code === 'auth/wrong-password') {
+        throw new Error('Incorrect password. Please verify your password and try again.');
+      } else if (e?.code === 'auth/user-not-found') {
+        throw new Error('Account was not registered. Please register an account first.');
+      } else if (e?.code === 'auth/invalid-credential') {
+        throw new Error('Invalid email or password. Please check your credentials or register an account.');
       } else if (e?.code === 'auth/too-many-requests') {
         throw new Error('Access temporarily blocked due to multiple failed login attempts. Please reset your password or try again later.');
       } else if (e?.code === 'auth/invalid-email') {
