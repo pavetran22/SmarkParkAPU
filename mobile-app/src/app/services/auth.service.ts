@@ -119,7 +119,16 @@ export class AuthService {
       return credential;
     } catch (e: any) {
       console.error('Mobile AuthService: Error during registration:', e);
-      throw e;
+      if (e?.code === 'auth/email-already-in-use') {
+        throw new Error('This APU email address is already registered to an existing account. Please sign in instead.');
+      } else if (e?.code === 'auth/weak-password') {
+        throw new Error('Password should be at least 6 characters long.');
+      } else if (e?.code === 'auth/invalid-email') {
+        throw new Error('Invalid email address format. Please enter a valid APU email.');
+      } else if (e?.code === 'auth/network-request-failed') {
+        throw new Error('Network connection error. Please check your connection and try again.');
+      }
+      throw new Error(e?.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, '') || e?.message || 'Registration failed. Please try again.');
     }
   }
 
