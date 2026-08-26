@@ -131,6 +131,57 @@ export class AuthService {
     }
   }
 
+  async checkAccountRegistered(email: string): Promise<boolean> {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const prefix = normalizedEmail.split('@')[0].toUpperCase();
+    const isStaff = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || 
+                    normalizedEmail.endsWith('@staffmail.apu.edu.my') || 
+                    normalizedEmail.endsWith('@staff.apu.edu.my');
+
+    try {
+      if (!isStaff) {
+        // 1. Check student_id (stored uppercase e.g. TP676767 or TP067847)
+        const qStudent = query(collection(this.firestore, 'users'), where('student_id', '==', prefix));
+        const snapStudent = await getDocs(qStudent);
+        if (!snapStudent.empty) return true;
+
+        // 2. Check email variations (lowercase, uppercase prefix)
+        const qEmailLower = query(collection(this.firestore, 'users'), where('email', '==', normalizedEmail));
+        const snapEmailLower = await getDocs(qEmailLower);
+        if (!snapEmailLower.empty) return true;
+
+        const qEmailUpper = query(collection(this.firestore, 'users'), where('email', '==', prefix + '@mail.apu.edu.my'));
+        const snapEmailUpper = await getDocs(qEmailUpper);
+        if (!snapEmailUpper.empty) return true;
+      } else {
+        // Check staff collection
+        const qStaff = query(collection(this.firestore, 'staff'), where('staff_id', '==', prefix));
+        const snapStaff = await getDocs(qStaff);
+        if (!snapStaff.empty) return true;
+
+        const qStaffEmail = query(collection(this.firestore, 'staff'), where('email', '==', normalizedEmail));
+        const snapStaffEmail = await getDocs(qStaffEmail);
+        if (!snapStaffEmail.empty) return true;
+      }
+
+      // 3. Fallback: check alternate collection just in case
+      const altCollection = isStaff ? 'users' : 'staff';
+      const idField = isStaff ? 'student_id' : 'staff_id';
+      const qAlt = query(collection(this.firestore, altCollection), where(idField, '==', prefix));
+      const snapAlt = await getDocs(qAlt);
+      if (!snapAlt.empty) return true;
+
+      const qAltEmail = query(collection(this.firestore, altCollection), where('email', '==', normalizedEmail));
+      const snapAltEmail = await getDocs(qAltEmail);
+      if (!snapAltEmail.empty) return true;
+
+    } catch (err) {
+      console.warn('[AuthService] Firestore registration check note:', err);
+    }
+
+    return false;
+  }
+
   async login(email: string, password: string) {
     const normalizedEmail = (email || '').trim().toLowerCase();
     
@@ -152,27 +203,7 @@ export class AuthService {
         e?.code === 'auth/wrong-password' || 
         e?.code === 'auth/user-not-found'
       ) {
-        // Check Firestore to distinguish if account is unregistered vs incorrect password
-        let accountExists = false;
-        try {
-          const isStaffEmail = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || normalizedEmail.endsWith('@staffmail.apu.edu.my') || normalizedEmail.endsWith('@staff.apu.edu.my');
-          const primaryCollection = isStaffEmail ? 'staff' : 'users';
-          const secondaryCollection = isStaffEmail ? 'users' : 'staff';
-          
-          const primaryQuery = query(collection(this.firestore, primaryCollection), where('email', '==', normalizedEmail));
-          const primarySnap = await getDocs(primaryQuery);
-          if (!primarySnap.empty) {
-            accountExists = true;
-          } else {
-            const secondaryQuery = query(collection(this.firestore, secondaryCollection), where('email', '==', normalizedEmail));
-            const secondarySnap = await getDocs(secondaryQuery);
-            if (!secondarySnap.empty) {
-              accountExists = true;
-            }
-          }
-        } catch (checkErr) {
-          console.warn('[AuthService] Account existence check note:', checkErr);
-        }
+        const accountExists = await this.checkAccountRegistered(normalizedEmail);
 
         if (!accountExists) {
           throw new Error('Account was not registered. Please register an account first.');
@@ -235,6 +266,26 @@ export class AuthService {
     }
   }
 
+  getUserProfileByPlate(plateNumber: string): Observable<UserProfile | null> {
+    const usersRef = collection(this.firestore, 'users');
+    const q = query(usersRef, where('car_plate', '==', plateNumber.toUpperCase()));
+
+    return from(getDocs(q)).pipe(
+      map(snapshot => {
+        if (!snapshot.empty) {
+          const docData = snapshot.docs[0].data() as any;
+          return {
+            uid: snapshot.docs[0].id,
+            balance: 20,
+            ...docData,
+            role: 'student'
+          } as UserProfile;
+        }
+        return null;
+      })
+    );
+  }
+
   isLoggedIn(): Observable<boolean> {
     return this.user$.pipe(map(u => !!u));
   }
@@ -253,49 +304,15 @@ export class AuthService {
       throw new Error("Invalid email domain. Only official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my) addresses are allowed.");
     }
 
-    // 2. Check if account is registered via Firebase Auth sign-in methods and Firestore
-    let isRegistered = false;
-
-    try {
-      const signInMethods = await fetchSignInMethodsForEmail(this.auth, normalizedEmail);
-      if (signInMethods && signInMethods.length > 0) {
-        isRegistered = true;
-      }
-    } catch (authCheckErr: any) {
-      console.warn('[AuthService] fetchSignInMethods note:', authCheckErr?.code, authCheckErr?.message);
-      if (authCheckErr?.code === 'auth/user-not-found') {
-        throw new Error('Account was not registered. Please register an account first.');
-      }
-    }
-
-    if (!isRegistered) {
-      try {
-        const isStaffEmail = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || normalizedEmail.endsWith('@staffmail.apu.edu.my') || normalizedEmail.endsWith('@staff.apu.edu.my');
-        const primaryCol = isStaffEmail ? 'staff' : 'users';
-        const secondaryCol = isStaffEmail ? 'users' : 'staff';
-
-        const q1 = query(collection(this.firestore, primaryCol), where('email', '==', normalizedEmail));
-        const snap1 = await getDocs(q1);
-        if (!snap1.empty) {
-          isRegistered = true;
-        } else {
-          const q2 = query(collection(this.firestore, secondaryCol), where('email', '==', normalizedEmail));
-          const snap2 = await getDocs(q2);
-          if (!snap2.empty) {
-            isRegistered = true;
-          }
-        }
-      } catch (dbErr) {
-        console.warn('[AuthService] Firestore check note:', dbErr);
-      }
-    }
+    // 2. Check if account is registered in Firestore database
+    const isRegistered = await this.checkAccountRegistered(normalizedEmail);
 
     if (!isRegistered) {
       throw new Error('Account was not registered. Please register an account first.');
     }
 
     // 3. Dispatch Password Reset Link
-    console.log('[AuthService] Dispatching password reset email for:', normalizedEmail);
+    console.log('[AuthService] Dispatching password reset email for registered account:', normalizedEmail);
 
     const redirectUrl = window.location.origin + '/reset-password';
     const actionCodeSettings = {
