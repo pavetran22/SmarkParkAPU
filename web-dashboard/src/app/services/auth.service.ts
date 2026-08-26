@@ -239,7 +239,19 @@ export class AuthService {
   }
 
   async sendResetEmail(email: string) {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    
+    // Strict domain validation: Only APU Student or Staff emails allowed
+    const isStudent = /^[Tt][Pp]\d+@mail\.apu\.edu\.my$/i.test(normalizedEmail);
+    const isStaff = /^[A-Za-z0-9._%+-]+@(staff\.mail\.apu\.edu\.my|staffmail\.apu\.edu\.my|staff\.apu\.edu\.my)$/i.test(normalizedEmail);
+
+    if (!isStudent && !isStaff) {
+      if (normalizedEmail.endsWith('@gmail.com') || normalizedEmail.endsWith('@yahoo.com') || normalizedEmail.endsWith('@hotmail.com') || normalizedEmail.endsWith('@outlook.com') || normalizedEmail.endsWith('@icloud.com')) {
+        throw new Error("Personal emails (Gmail, Yahoo, Outlook, etc.) are not permitted. Only official APU TP or staff email addresses (e.g. TPXXXXXX@mail.apu.edu.my) are allowed.");
+      }
+      throw new Error("Invalid email domain. Only official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my) addresses are allowed.");
+    }
+
     console.log('[AuthService] Invoking Firebase sendPasswordResetEmail for:', normalizedEmail);
 
     const redirectUrl = window.location.origin + '/reset-password';
@@ -255,7 +267,7 @@ export class AuthService {
     } catch (err: any) {
       console.warn('[AuthService] sendPasswordResetEmail notice:', err?.code, err?.message);
       if (err?.code === 'auth/invalid-email') {
-        throw new Error('Please enter a valid email address format.');
+        throw new Error('Please enter a valid APU email address format.');
       }
       try {
         await sendPasswordResetEmail(this.auth, normalizedEmail);

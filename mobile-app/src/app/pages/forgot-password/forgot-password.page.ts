@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ToastController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
@@ -38,13 +38,16 @@ import { AuthService } from '../../services/auth.service';
 
             <ion-list lines="none">
               <ion-item class="auth-item">
-                <ion-label position="stacked">Email Address</ion-label>
-                <ion-input type="email" [(ngModel)]="email" placeholder="student@mail.com"></ion-input>
+                <ion-label position="stacked">APU Email Address</ion-label>
+                <ion-input type="email" [(ngModel)]="email" placeholder="TP067847@mail.apu.edu.my"></ion-input>
               </ion-item>
+              <p style="font-size: 0.72rem; color: #64748b; margin: 4px 0 10px 16px;">
+                Use official <strong>TPXXXXXX&#64;mail.apu.edu.my</strong> or staff email.
+              </p>
             </ion-list>
 
             <ion-button expand="block" shape="round" class="auth-btn" (click)="handleSendLink()" [disabled]="loading || !email.trim()">
-              {{ loading ? 'Sending Link...' : 'Send Reset Link' }}
+              {{ loading ? 'Sending Reset Link...' : 'Send Reset Link' }}
             </ion-button>
           </div>
 
@@ -55,7 +58,7 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <h2>Check Your Inbox</h2>
             <p>
-              If <strong>{{ sentEmail }}</strong> is registered, a password reset link has been sent. Please check your inbox and click the link to reset your password.
+              A password reset link has been dispatched to <strong>{{ sentEmail }}</strong>. Please check your inbox and click the link to reset your password.
             </p>
 
             <div class="resend-wrap">
@@ -84,7 +87,7 @@ import { AuthService } from '../../services/auth.service';
     .auth-header h1 { font-size: 1.6rem; font-weight: 800; margin: 0; color: #0f172a; }
     .auth-header p { margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.88rem; line-height: 1.4; }
     .error-msg { background: #fee2e2; color: #ef4444; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.85rem; margin-bottom: 1rem; text-align: center; border: 1px solid #fca5a5; font-weight: 600; }
-    .auth-item { --background: transparent; --padding-start: 0; --inner-padding-end: 0; margin-bottom: 1rem; ion-label { color: #334155; font-weight: 700; margin-bottom: 0.5rem; } ion-input { background: white; border: 1px solid #cbd5e1; border-radius: 0.75rem; padding: 0.75rem 1rem !important; --padding-start: 1rem; } }
+    .auth-item { --background: transparent; --padding-start: 0; --inner-padding-end: 0; margin-bottom: 0.5rem; ion-label { color: #334155; font-weight: 700; margin-bottom: 0.5rem; } ion-input { background: white; border: 1px solid #cbd5e1; border-radius: 0.75rem; padding: 0.75rem 1rem !important; --padding-start: 1rem; } }
     .auth-btn { margin-top: 1rem; --background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); --box-shadow: 0 4px 14px 0 rgba(29, 78, 216, 0.35); height: 3.25rem; font-weight: 800; }
 
     .confirmation-box { text-align: center; }
@@ -108,7 +111,9 @@ export class ForgotPasswordPage implements OnInit, OnDestroy {
   constructor(
     private auth: AuthService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private cdr: ChangeDetectorRef,
+    private toastCtrl: ToastController
   ) {}
 
   ngOnInit() {
@@ -123,6 +128,22 @@ export class ForgotPasswordPage implements OnInit, OnDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
+  async showInboxToast(emailAddress: string) {
+    const toast = await this.toastCtrl.create({
+      message: 'Check your inbox for the reset link',
+      duration: 5000,
+      position: 'top',
+      color: 'success',
+      buttons: [
+        {
+          text: 'OK',
+          role: 'cancel'
+        }
+      ]
+    });
+    await toast.present();
+  }
+
   startCooldown() {
     this.cooldownSeconds = 60;
     if (this.timer) clearInterval(this.timer);
@@ -132,27 +153,42 @@ export class ForgotPasswordPage implements OnInit, OnDestroy {
       } else {
         clearInterval(this.timer);
       }
+      this.cdr.detectChanges();
     }, 1000);
   }
 
   async handleSendLink() {
-    if (!this.email || !this.email.trim()) {
-      this.error = 'Please enter a valid email address.';
+    const normalized = (this.email || '').trim().toLowerCase();
+    if (!normalized) {
+      this.error = 'Please enter your registered APU email address.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const isStudent = /^[Tt][Pp]\d+@mail\.apu\.edu\.my$/i.test(normalized);
+    const isStaff = /^[A-Za-z0-9._%+-]+@(staff\.mail\.apu\.edu\.my|staffmail\.apu\.edu\.my|staff\.apu\.edu\.my)$/i.test(normalized);
+    if (!isStudent && !isStaff) {
+      this.error = 'Only official APU email addresses (e.g. TPXXXXXX@mail.apu.edu.my) are allowed.';
+      this.cdr.detectChanges();
       return;
     }
 
     this.loading = true;
     this.error = '';
+    this.cdr.detectChanges();
 
     try {
-      await this.auth.sendResetEmail(this.email);
-      this.sentEmail = this.email.trim().toLowerCase();
+      await this.auth.sendResetEmail(normalized);
+      this.sentEmail = normalized;
       this.emailSent = true;
       this.startCooldown();
+      await this.showInboxToast(normalized);
     } catch (e: any) {
-      this.error = e.message || 'Failed to send reset link.';
+      console.warn('[ForgotPasswordPage] Error caught:', e);
+      this.error = e.message || 'Failed to send reset link. Please check the email address.';
     } finally {
       this.loading = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -161,14 +197,17 @@ export class ForgotPasswordPage implements OnInit, OnDestroy {
 
     this.loading = true;
     this.error = '';
+    this.cdr.detectChanges();
 
     try {
       await this.auth.sendResetEmail(this.sentEmail);
       this.startCooldown();
+      await this.showInboxToast(this.sentEmail);
     } catch (e: any) {
       this.error = e.message || 'Failed to resend reset link.';
     } finally {
       this.loading = false;
+      this.cdr.detectChanges();
     }
   }
 
