@@ -131,7 +131,7 @@ export class AuthService {
     }
   }
 
-  async checkAccountRegistered(email: string): Promise<'REGISTERED' | 'NOT_FOUND' | 'PERMISSION_DENIED'> {
+  async checkAccountRegistered(email: string): Promise<boolean> {
     const normalizedEmail = (email || '').trim().toLowerCase();
     const prefix = normalizedEmail.split('@')[0].toUpperCase();
     const isStaff = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || 
@@ -143,25 +143,25 @@ export class AuthService {
         // 1. Check student_id (stored uppercase e.g. TP676767 or TP067847)
         const qStudent = query(collection(this.firestore, 'users'), where('student_id', '==', prefix));
         const snapStudent = await getDocs(qStudent);
-        if (!snapStudent.empty) return 'REGISTERED';
+        if (!snapStudent.empty) return true;
 
         // 2. Check email variations (lowercase, uppercase prefix)
         const qEmailLower = query(collection(this.firestore, 'users'), where('email', '==', normalizedEmail));
         const snapEmailLower = await getDocs(qEmailLower);
-        if (!snapEmailLower.empty) return 'REGISTERED';
+        if (!snapEmailLower.empty) return true;
 
         const qEmailUpper = query(collection(this.firestore, 'users'), where('email', '==', prefix + '@mail.apu.edu.my'));
         const snapEmailUpper = await getDocs(qEmailUpper);
-        if (!snapEmailUpper.empty) return 'REGISTERED';
+        if (!snapEmailUpper.empty) return true;
       } else {
         // Check staff collection
         const qStaff = query(collection(this.firestore, 'staff'), where('staff_id', '==', prefix));
         const snapStaff = await getDocs(qStaff);
-        if (!snapStaff.empty) return 'REGISTERED';
+        if (!snapStaff.empty) return true;
 
         const qStaffEmail = query(collection(this.firestore, 'staff'), where('email', '==', normalizedEmail));
         const snapStaffEmail = await getDocs(qStaffEmail);
-        if (!snapStaffEmail.empty) return 'REGISTERED';
+        if (!snapStaffEmail.empty) return true;
       }
 
       // 3. Fallback: check alternate collection just in case
@@ -169,16 +169,16 @@ export class AuthService {
       const idField = isStaff ? 'student_id' : 'staff_id';
       const qAlt = query(collection(this.firestore, altCollection), where(idField, '==', prefix));
       const snapAlt = await getDocs(qAlt);
-      if (!snapAlt.empty) return 'REGISTERED';
+      if (!snapAlt.empty) return true;
 
       const qAltEmail = query(collection(this.firestore, altCollection), where('email', '==', normalizedEmail));
       const snapAltEmail = await getDocs(qAltEmail);
-      if (!snapAltEmail.empty) return 'REGISTERED';
+      if (!snapAltEmail.empty) return true;
 
-      return 'NOT_FOUND';
+      return false;
     } catch (err: any) {
       console.warn('[AuthService] Firestore registration check note:', err?.code, err?.message);
-      return 'PERMISSION_DENIED';
+      return false;
     }
   }
 
@@ -203,12 +203,8 @@ export class AuthService {
         e?.code === 'auth/wrong-password' || 
         e?.code === 'auth/user-not-found'
       ) {
-        if (e?.code === 'auth/user-not-found') {
-          throw new Error('TP Address is not registered. Please register an account first.');
-        }
-
-        const status = await this.checkAccountRegistered(normalizedEmail);
-        if (status === 'NOT_FOUND') {
+        const isRegistered = await this.checkAccountRegistered(normalizedEmail);
+        if (!isRegistered) {
           throw new Error('TP Address is not registered. Please register an account first.');
         } else {
           throw new Error('Incorrect password. Please verify your password and try again.');
@@ -310,9 +306,9 @@ export class AuthService {
     }
 
     // 2. Check if account is registered in Firestore database
-    const status = await this.checkAccountRegistered(normalizedEmail);
+    const isRegistered = await this.checkAccountRegistered(normalizedEmail);
 
-    if (status === 'NOT_FOUND') {
+    if (!isRegistered) {
       throw new Error('TP Address is not registered. Please register an account first.');
     }
 
