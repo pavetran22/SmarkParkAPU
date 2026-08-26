@@ -8,6 +8,7 @@ import {
   sendPasswordResetEmail,
   verifyPasswordResetCode,
   confirmPasswordReset,
+  fetchSignInMethodsForEmail,
   User as FirebaseUser 
 } from '@angular/fire/auth';
 import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from '@angular/fire/firestore';
@@ -241,7 +242,7 @@ export class AuthService {
   async sendResetEmail(email: string) {
     const normalizedEmail = (email || '').trim().toLowerCase();
     
-    // Strict domain validation: Only APU Student or Staff emails allowed
+    // 1. Strict domain validation: Only APU Student or Staff emails allowed
     const isStudent = /^[Tt][Pp]\d+@mail\.apu\.edu\.my$/i.test(normalizedEmail);
     const isStaff = /^[A-Za-z0-9._%+-]+@(staff\.mail\.apu\.edu\.my|staffmail\.apu\.edu\.my|staff\.apu\.edu\.my)$/i.test(normalizedEmail);
 
@@ -252,33 +253,49 @@ export class AuthService {
       throw new Error("Invalid email domain. Only official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my) addresses are allowed.");
     }
 
-    // Verify account exists in Firestore database
-    const isStaffEmail = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || normalizedEmail.endsWith('@staffmail.apu.edu.my') || normalizedEmail.endsWith('@staff.apu.edu.my');
-    const primaryCol = isStaffEmail ? 'staff' : 'users';
-    const secondaryCol = isStaffEmail ? 'users' : 'staff';
+    // 2. Check if account is registered via Firebase Auth sign-in methods and Firestore
+    let isRegistered = false;
 
-    let accountFound = false;
     try {
-      const q1 = query(collection(this.firestore, primaryCol), where('email', '==', normalizedEmail));
-      const snap1 = await getDocs(q1);
-      if (!snap1.empty) {
-        accountFound = true;
-      } else {
-        const q2 = query(collection(this.firestore, secondaryCol), where('email', '==', normalizedEmail));
-        const snap2 = await getDocs(q2);
-        if (!snap2.empty) {
-          accountFound = true;
-        }
+      const signInMethods = await fetchSignInMethodsForEmail(this.auth, normalizedEmail);
+      if (signInMethods && signInMethods.length > 0) {
+        isRegistered = true;
       }
-    } catch (dbErr) {
-      console.warn('[AuthService] Checking registration existence error:', dbErr);
+    } catch (authCheckErr: any) {
+      console.warn('[AuthService] fetchSignInMethods note:', authCheckErr?.code, authCheckErr?.message);
+      if (authCheckErr?.code === 'auth/user-not-found') {
+        throw new Error('Account was not registered. Please register an account first.');
+      }
     }
 
-    if (!accountFound) {
-      throw new Error('Account is not registered. Please sign up to create an account.');
+    if (!isRegistered) {
+      try {
+        const isStaffEmail = normalizedEmail.endsWith('@staff.mail.apu.edu.my') || normalizedEmail.endsWith('@staffmail.apu.edu.my') || normalizedEmail.endsWith('@staff.apu.edu.my');
+        const primaryCol = isStaffEmail ? 'staff' : 'users';
+        const secondaryCol = isStaffEmail ? 'users' : 'staff';
+
+        const q1 = query(collection(this.firestore, primaryCol), where('email', '==', normalizedEmail));
+        const snap1 = await getDocs(q1);
+        if (!snap1.empty) {
+          isRegistered = true;
+        } else {
+          const q2 = query(collection(this.firestore, secondaryCol), where('email', '==', normalizedEmail));
+          const snap2 = await getDocs(q2);
+          if (!snap2.empty) {
+            isRegistered = true;
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[AuthService] Firestore check note:', dbErr);
+      }
     }
 
-    console.log('[AuthService] Invoking Firebase sendPasswordResetEmail for:', normalizedEmail);
+    if (!isRegistered) {
+      throw new Error('Account was not registered. Please register an account first.');
+    }
+
+    // 3. Dispatch Password Reset Link
+    console.log('[AuthService] Dispatching password reset email for:', normalizedEmail);
 
     const redirectUrl = window.location.origin + '/reset-password';
     const actionCodeSettings = {
@@ -288,21 +305,18 @@ export class AuthService {
 
     try {
       await sendPasswordResetEmail(this.auth, normalizedEmail, actionCodeSettings);
-      console.log('[AuthService] Password reset link sent with custom redirect URL:', redirectUrl);
+      console.log('[AuthService] Password reset email sent successfully to:', normalizedEmail);
       return { success: true, email: normalizedEmail };
     } catch (err: any) {
-      console.warn('[AuthService] sendPasswordResetEmail notice:', err?.code, err?.message);
+      console.error('[AuthService] sendPasswordResetEmail error:', err);
       if (err?.code === 'auth/user-not-found') {
-        throw new Error('Account is not registered. Please sign up to create an account.');
+        throw new Error('Account was not registered. Please register an account first.');
       } else if (err?.code === 'auth/invalid-email') {
         throw new Error('Please enter a valid APU email address format.');
       } else if (err?.code === 'auth/too-many-requests') {
         throw new Error('Too many requests. Please wait a few moments before requesting another reset link.');
       }
-      try {
-        await sendPasswordResetEmail(this.auth, normalizedEmail);
-      } catch (fallbackErr) {}
-      return { success: true, email: normalizedEmail };
+      throw new Error(err?.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, '') || err?.message || 'Failed to send password reset link.');
     }
   }
 
