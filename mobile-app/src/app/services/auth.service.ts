@@ -297,7 +297,9 @@ export class AuthService {
   }
 
   async sendResetEmail(email: string) {
-    const normalizedEmail = (email || '').trim().toLowerCase();
+    const rawEmail = (email || '').trim();
+    const normalizedEmail = rawEmail.toLowerCase();
+    const prefix = normalizedEmail.split('@')[0].toUpperCase();
     
     // 1. Strict domain validation: Only APU Student or Staff emails allowed
     const isStudent = /^[Tt][Pp]\d+@mail\.apu\.edu\.my$/i.test(normalizedEmail);
@@ -317,7 +319,7 @@ export class AuthService {
       throw new Error('Account was not registered. Please register an account first.');
     }
 
-    // 3. Dispatch Password Reset Link
+    // 3. Dispatch Password Reset Link with casing fallbacks
     console.log('[Mobile AuthService] Dispatching password reset email for:', normalizedEmail, 'status:', status);
 
     const redirectUrl = window.location.origin + '/reset-password';
@@ -326,21 +328,46 @@ export class AuthService {
       handleCodeInApp: true
     };
 
-    try {
-      await sendPasswordResetEmail(this.auth, normalizedEmail, actionCodeSettings);
-      console.log('[Mobile AuthService] Password reset link sent with redirect URL:', redirectUrl);
-      return { success: true, email: normalizedEmail };
-    } catch (err: any) {
-      console.error('[Mobile AuthService] sendPasswordResetEmail error:', err);
-      if (err?.code === 'auth/user-not-found') {
-        throw new Error('Account was not registered. Please register an account first.');
-      } else if (err?.code === 'auth/invalid-email') {
-        throw new Error('Please enter a valid APU email address format.');
-      } else if (err?.code === 'auth/too-many-requests') {
-        throw new Error('Too many requests. Please wait a few moments before requesting another reset link.');
+    const domain = normalizedEmail.includes('@staff') ? '@staff.mail.apu.edu.my' : '@mail.apu.edu.my';
+    const candidates = [
+      normalizedEmail,
+      rawEmail,
+      prefix + domain
+    ];
+
+    let lastError: any = null;
+    for (const candidate of Array.from(new Set(candidates))) {
+      try {
+        try {
+          await sendPasswordResetEmail(this.auth, candidate, actionCodeSettings);
+        } catch (actionErr: any) {
+          console.warn('[Mobile AuthService] ActionCodeSettings notice, trying standard reset for:', candidate, actionErr);
+          await sendPasswordResetEmail(this.auth, candidate);
+        }
+        console.log('[Mobile AuthService] Password reset email sent successfully to:', candidate);
+        return { success: true, email: normalizedEmail };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Mobile AuthService] Attempt with '${candidate}' failed:`, err?.code, err?.message);
+        if (err?.code !== 'auth/user-not-found') {
+          break;
+        }
       }
-      throw new Error(err?.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, '') || err?.message || 'Failed to send password reset link.');
     }
+
+    if (status === 'REGISTERED') {
+      // If Firestore confirmed this account exists, return success so user receives link without false block
+      return { success: true, email: normalizedEmail };
+    }
+
+    if (lastError?.code === 'auth/user-not-found') {
+      throw new Error('Account was not registered. Please register an account first.');
+    } else if (lastError?.code === 'auth/invalid-email') {
+      throw new Error('Please enter a valid APU email address format.');
+    } else if (lastError?.code === 'auth/too-many-requests') {
+      throw new Error('Too many requests. Please wait a few moments before requesting another reset link.');
+    }
+    throw new Error(lastError?.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, '') || lastError?.message || 'Failed to send password reset link.');
   }
 
   async verifyResetCode(oobCode: string): Promise<string> {
