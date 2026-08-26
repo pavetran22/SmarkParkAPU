@@ -45,16 +45,28 @@ export class AuthService {
     console.log('Mobile AuthService: Starting Firebase registration for', email);
     let credential: any = null;
     try {
-      const emailParts = email.split('@');
-      const prefix = emailParts[0];
-      const isStaff = email.toLowerCase().endsWith('@staff.mail.apu.edu.my');
+      const normalizedEmail = email.trim().toLowerCase();
       
+      // Strict domain validation: Only APU Student (TPXXXXXX@mail.apu.edu.my) or Staff emails allowed
+      const isStudent = /^[Tt][Pp]\d+@mail\.apu\.edu\.my$/i.test(normalizedEmail);
+      const isStaff = /^[A-Za-z0-9._%+-]+@(staff\.mail\.apu\.edu\.my|staffmail\.apu\.edu\.my|staff\.apu\.edu\.my)$/i.test(normalizedEmail);
+
+      if (!isStudent && !isStaff) {
+        if (normalizedEmail.endsWith('@gmail.com') || normalizedEmail.endsWith('@yahoo.com') || normalizedEmail.endsWith('@hotmail.com') || normalizedEmail.endsWith('@outlook.com') || normalizedEmail.endsWith('@icloud.com')) {
+          throw new Error("Personal emails (Gmail, Yahoo, Outlook, etc.) are not permitted. Please use your official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my).");
+        }
+        throw new Error("Invalid email domain. You must register with an official APU student email (TPXXXXXX@mail.apu.edu.my) or staff email (TPXXXXXX@staff.mail.apu.edu.my).");
+      }
+
+      const emailParts = normalizedEmail.split('@');
+      const prefix = emailParts[0];
+
       const collectionName = isStaff ? 'staff' : 'users';
       const idField = isStaff ? 'staff_id' : 'student_id';
       const targetId = isStaff ? prefix : prefix.toUpperCase();
 
       // 1. Create auth user first so request.auth != null is satisfied for Firestore security rules
-      credential = await createUserWithEmailAndPassword(this.auth, email, password);
+      credential = await createUserWithEmailAndPassword(this.auth, normalizedEmail, password);
       console.log('Mobile AuthService: Auth user created, UID:', credential.user.uid);
 
       // 2. Check uniqueness of TP Number / Staff ID (excluding own newly created UID)

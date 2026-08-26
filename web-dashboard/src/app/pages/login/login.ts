@@ -45,8 +45,8 @@ import { LucideAngularModule } from 'lucide-angular';
                 </div>
  
                 <div class="input-group">
-                    <label>Email Address</label>
-                    <input class="modern-input" type="email" [(ngModel)]="email" name="email" placeholder="student@mail.com" />
+                    <label>APU Email Address</label>
+                    <input class="modern-input" type="email" [(ngModel)]="email" name="email" placeholder="TP067847@mail.apu.edu.my" />
                 </div>
  
                 <div class="input-group">

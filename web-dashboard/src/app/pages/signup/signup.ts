@@ -50,8 +50,11 @@ import { LucideAngularModule } from 'lucide-angular';
                 </div>
 
                 <div class="input-group">
-                    <label>Email Address</label>
-                    <input class="modern-input" type="email" [(ngModel)]="email" name="email" placeholder="student@mail.com" />
+                    <label>APU Email Address</label>
+                    <input class="modern-input" type="email" [(ngModel)]="email" name="email" placeholder="TP067847@mail.apu.edu.my" />
+                    <span style="display: block; font-size: 0.72rem; color: #94a3b8; margin-top: 4px; font-weight: 500;">
+                        Use your official <strong>TPXXXXXX&#64;mail.apu.edu.my</strong> or staff email.
+                    </span>
                 </div>
 
                 <div class="input-group">
